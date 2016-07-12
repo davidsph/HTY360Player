@@ -11,10 +11,17 @@
 
 @interface HTY360PlayerVC : UIViewController
 
+@property(nonatomic,weak)IBOutlet UIView *playerControlBackgroundView;
 @property (strong, nonatomic) NSURL *videoURL;
+@property(nonatomic,weak)AVPlayerLayer *playerLayer;
+@property(nonatomic,assign)BOOL isVRDisplayModelEnable;
 
 - (id)initWithNibName:(NSString *)nibNameOrNil bundle:(NSBundle *)nibBundleOrNil url:(NSURL*)url;
 - (CVPixelBufferRef)retrievePixelBufferToDraw;
 - (void)toggleControls;
 
+- (void)configureGLKView;
+- (void)configureAVPlayLayer;
+- (void)removeGLKView;
+- (void)removeAVPlayerDisplayerLayer;
 @end

@@ -26,7 +26,6 @@ static void *AVPlayerItemStatusContext = &AVPlayerItemStatusContext;
 
 @interface HTY360PlayerVC ()
 
-@property (strong, nonatomic) IBOutlet UIView *playerControlBackgroundView;
 @property (strong, nonatomic) IBOutlet UIButton *playButton;
 @property (strong, nonatomic) IBOutlet UISlider *progressSlider;
 @property (strong, nonatomic) IBOutlet UIButton *backButton;
@@ -62,8 +61,16 @@ static void *AVPlayerItemStatusContext = &AVPlayerItemStatusContext;
                                                  name:UIApplicationDidBecomeActiveNotification
                                                object:nil];
     
+    UITapGestureRecognizer *singleTapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self
+                                                                                          action:@selector(handleSingleTapGesture:)];
+    singleTapRecognizer.numberOfTapsRequired = 1;
+    [self.view addGestureRecognizer:singleTapRecognizer];
+    self.isVRDisplayModelEnable = YES; // 默认是VR模式开启
+    
     [self setupVideoPlaybackForURL:_videoURL];
-    [self configureGLKView];
+    if (self.isVRDisplayModelEnable) {
+        [self configureGLKView];
+    }
     [self configurePlayButton];
     [self configureProgressSlider];
     [self configureControleBackgroundView];
@@ -73,6 +80,11 @@ static void *AVPlayerItemStatusContext = &AVPlayerItemStatusContext;
 #if SHOW_DEBUG_LABEL
     self.debugView.hidden = NO;
 #endif
+}
+
+- (void)handleSingleTapGesture:(UITapGestureRecognizer *)recognizer
+{
+    [self toggleControls];
 }
 
 - (void)applicationWillResignActive:(NSNotification *)notification {
@@ -133,7 +145,6 @@ static void *AVPlayerItemStatusContext = &AVPlayerItemStatusContext;
     self.videoOutput = [[AVPlayerItemVideoOutput alloc] initWithPixelBufferAttributes:pixelBuffAttributes];
     
     self.player = [[AVPlayer alloc] init];
-    
     // Do not take mute button into account
     NSError *error = nil;
     BOOL success = [[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback
@@ -207,15 +218,31 @@ static void *AVPlayerItemStatusContext = &AVPlayerItemStatusContext;
     }];
 }
 
+- (HTYGLKVC *)glkViewController
+{
+    if (!_glkViewController) {
+        _glkViewController = [[HTYGLKVC alloc] init];
+    }
+    return _glkViewController;
+}
+
 #pragma mark - rendering glk view management
 
 - (void)configureGLKView {
-    self.glkViewController = [[HTYGLKVC alloc] init];
+//    self.glkViewController = [[HTYGLKVC alloc] init];
     self.glkViewController.videoPlayerController = self;
     self.glkViewController.view.frame = self.view.bounds;
     [self.view insertSubview:self.glkViewController.view belowSubview:self.playerControlBackgroundView];
     [self addChildViewController:self.glkViewController];
     [self.glkViewController didMoveToParentViewController:self];
+}
+
+- (void)removeGLKView
+{
+    self.glkViewController.videoPlayerController = nil;
+    [self.glkViewController.view removeFromSuperview];
+    [self.glkViewController removeFromParentViewController];
+//    self.glkViewController = nil; // 重复利用VC,保证手势可连续性
 }
 
 #pragma mark - play button management
@@ -242,6 +269,24 @@ static void *AVPlayerItemStatusContext = &AVPlayerItemStatusContext;
                      forState:UIControlStateNormal];
 }
 
+- (void)configureAVPlayLayer
+{
+    if (self.playerLayer) {
+        [self.playerLayer removeFromSuperlayer];
+    }
+    AVPlayerLayer *playerLayer = [AVPlayerLayer playerLayerWithPlayer:self.player];
+    playerLayer.frame = self.view.bounds;
+    [self.view.layer insertSublayer:playerLayer below:self.playerControlBackgroundView.layer];
+    self.playerLayer = playerLayer;
+}
+
+- (void)removeAVPlayerDisplayerLayer
+{
+    if (self.playerLayer) {
+        [self.playerLayer removeFromSuperlayer];
+    }
+}
+
 - (void)play {
     if ([self isPlaying])
         return;
@@ -251,7 +296,6 @@ static void *AVPlayerItemStatusContext = &AVPlayerItemStatusContext;
         self.seekToZeroBeforePlay = NO;
         [self.player seekToTime:kCMTimeZero];
     }
-    
     [self updatePlayButton];
     [self.player play];
     
